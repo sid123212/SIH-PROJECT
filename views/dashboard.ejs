@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=4.0">
+  <title>Delhi AQI Dashboard</title>
+
+  <!-- Bootstrap CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <!-- Flatpickr CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" />
+  <!-- Font Awesome -->
+  <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+
+  <style>
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background-color: #f4f4f9;
+      margin: 0;
+      padding: 0;
+    }
+
+    h2, h5 {
+      font-weight: 600;
+    }
+
+    /* Navbar */
+    .navbar {
+      background-color: crimson;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    }
+    .navbar .btn {
+      transition: transform 0.2s, background 0.2s;
+    }
+    .navbar .btn:hover {
+      transform: scale(1.05);
+      background-color: #fff3f3;
+    }
+
+    /* Module buttons */
+    .module-btn {
+      transition: transform 0.2s, box-shadow 0.2s;
+      border-radius: 8px;
+      font-weight: 500;
+    }
+    .module-btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+
+    /* Map */
+    #aqiMap {
+      width: 100%;
+      height: 60vh;
+      min-height: 300px;
+      margin: 20px 0;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+    /* Cards */
+    .card {
+      border: none;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+    }
+
+    /* Module content */
+    .module-content {
+      display: none;
+      padding: 20px;
+      background: #fff;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    .module-content.active {
+      display: block;
+    }
+
+    /* Date picker */
+    .date-picker-container {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    #calendarIcon {
+      cursor: pointer;
+      margin-left: 5px;
+      transition: transform 0.2s;
+    }
+    #calendarIcon:hover {
+      transform: scale(1.2);
+    }
+
+    /* AQI Scale */
+    .aqi-scale div {
+      border-radius: 6px;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      .module-btn {
+        flex: 1 1 100%;
+        text-align: center;
+      }
+      #aqiMap {
+        height: 40vh;
+      }
+    }
+  </style>
+</head>
+<body>
+
+
+
+<!-- Date Picker -->
+<div class="date-picker-container">
+  <label for="datePicker">Pick a Date:</label>
+  <input type="text" id="datePicker" class="form-control d-inline-block w-auto"/>
+  <button id="calendarIcon" class="btn btn-outline-secondary">📅</button>
+</div>
+
+<!-- Map -->
+<div id="aqiMap"></div>
+
+<!-- Module Content -->
+<div id="citizen" class="module-content active">
+  <p>Welcome to the Citizen App module. Get real-time AQI updates for Delhi.</p>
+</div>
+<div id="ai" class="module-content">
+  <p>AI Recommendations module: Suggested precautions based on current AQI.</p>
+</div>
+<div id="health" class="module-content">
+  <p>Health Alerts: Warnings for sensitive groups and recommendations.</p>
+</div>
+<div id="source" class="module-content">
+  <p>Source Identification: Trace pollution sources in Delhi.</p>
+</div>
+<div id="policy" class="module-content">
+  <p>Policy Dashboard: Insights for policymakers and government planning.</p>
+</div>
+
+<!-- Info & Smart Calendar -->
+<div class="container-fluid my-4">
+  <div class="row g-3">
+    <!-- AQI Info Card -->
+    <div class="col-md-4 col-12">
+      <div class="card text-dark bg-gradient" style="background: linear-gradient(to right, #FFE5B4, #FFD580);">
+        <div class="card-body">
+          <h5 class="card-title text-center mb-3"><i class="fas fa-smog"></i> Local Air Quality Info</h5>
+          <p><i class="fas fa-city me-2"></i><strong>City:</strong> <span id="cityName">Delhi</span></p>
+          <p><i class="fas fa-gauge-high me-2"></i><strong>AQI:</strong> <span id="aqiValue">--</span></p>
+          <p><i class="fas fa-biohazard me-2"></i><strong>Major Pollutant:</strong> <span id="majorPollutant">--</span></p>
+          <p><i class="fas fa-temperature-high me-2"></i><strong>Temperature:</strong> <span id="tempValue">--</span> °C</p>
+          <p><i class="fas fa-tint me-2"></i><strong>Humidity:</strong> <span id="humidityValue">--</span> %</p>
+
+          <div class="aqi-scale mt-3">
+            <div style="display:flex; justify-content: space-between; font-weight:bold; font-size:0.85rem;">
+              <span style="color:green;">0</span>
+              <span style="color:yellow;">50</span>
+              <span style="color:orange;">100</span>
+              <span style="color:red;">150</span>
+              <span style="color:purple;">200</span>
+              <span style="color:maroon;">300+</span>
+            </div>
+            <div style="height:15px; background: linear-gradient(to right, green, yellow, orange, red, purple, maroon); border-radius: 6px;"></div>
+            <p class="text-center small mt-1 mb-0">AQI Danger Level</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Smart Calendar -->
+    <div class="col-md-8 col-12">
+      <div class="card p-3">
+        <h5 class="card-title text-center mb-3"><i class="fas fa-calendar-alt"></i> AQI Smart Calendar</h5>
+        <input type="text" id="smartCalendar" class="form-control"/>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
+<script>
+  // Flatpickr setup
+  const dateInput = document.getElementById('datePicker');
+  flatpickr("#datePicker", { dateFormat: "Y-m-d", defaultDate: new Date() });
+  document.getElementById('calendarIcon').addEventListener('click', () => {
+    dateInput._flatpickr.open();
+  });
+
+  // Leaflet map
+  const map = L.map('aqiMap').setView([28.6139, 77.2090], 11);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+
+  
+  // Smart Calendar AQI coloring
+  const aqiDates = {
+    "2025-09-20": 180,
+    "2025-09-21": 150,
+    "2025-09-22": 210,
+    "2025-09-23": 90
+  };
+  flatpickr("#smartCalendar", {
+    inline: true,
+    enable: Object.keys(aqiDates),
+    onDayCreate: function(dObj, dStr, fp, dayElem){
+      const dateStr = dayElem.dateObj.toISOString().split('T')[0];
+      if(aqiDates[dateStr]){
+        const aqi = aqiDates[dateStr];
+        let color;
+        if(aqi <=50) color='green';
+        else if(aqi <=100) color='yellow';
+        else if(aqi <=150) color='orange';
+        else if(aqi <=200) color='red';
+        else if(aqi <=300) color='purple';
+        else color='maroon';
+        dayElem.style.backgroundColor = color;
+        dayElem.style.color = 'white';
+        dayElem.title = `AQI: ${aqi}`;
+      }
+    }
+  });
+</script>
+</body>
+</html>
